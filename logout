@@ -1,0 +1,48 @@
+#!/usr/local/bin/perl -I.
+
+=pod
+this is a sample AIS "logout" program, which
+handles the login buttons sent out by the "add" program.
+=cut
+
+
+my ($SessionCookie) = ($ENV{HTTP_COOKIE} =~ /AIS_Session=(\w+)/);
+
+unless ($SessionCookie){
+	print <<EOF and exit;
+Content-Type: text/html
+
+<body bgcolor=ffffff>
+
+You appear to be already logged out
+
+</body>
+
+
+EOF
+
+};
+
+use DirDB;
+tie %Ses,'DirDB','data/Sessions'; 
+
+delete $Ses{$SessionCookie};
+
+
+print <<EOF;
+Set-Cookie: AIS_Session=; path=/cgi/ais/;
+Content-Type: text/html
+
+<body bgcolor=ffffff>
+
+Your AIS session cookie has been deleted.  You may log in again
+by clicking on the log-in button in your e-mail.
+
+
+</body>
+
+EOF
+
+__END__
+
+

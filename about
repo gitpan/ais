@@ -1,0 +1,3 @@
+#!/bin/sh
+echo Location: /ais/about.html
+echo

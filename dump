@@ -1,0 +1,55 @@
+#!/usr/local/bin/perl -I.
+=pod
+
+dump the AIS database
+
+=cut
+
+print"Content-Type: Text/plain\n\n";
+use DirDB;
+
+tie %SSO, 'DirDB', 'data/SSO_keys';
+tie %Ses, 'DirDB', 'data/Sessions';
+tie %OTU, 'DirDB', 'data/OTU_keys';
+
+print "\nCookies: $ENV{HTTP_COOKIE}\n\n";
+
+print"\nSSO Keys\n";
+
+
+while (($k,$v) = each %SSO){
+	print <<EOF;
+record: $k
+$v
+end record: $k
+
+EOF
+};
+print "Sessions\n";
+while (($k,$v) = each %Ses){
+	print <<EOF;
+record: $k
+$v
+end record: $k
+
+EOF
+};
+print "OTU keys\n";
+while (($k,$v) = each %OTU){
+	print <<EOF;
+record: $k
+$v
+end record: $k
+
+EOF
+
+};
+
+
+
+__END__
+
+
+
+
+

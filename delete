@@ -1,0 +1,62 @@
+#!/usr/local/bin/perl -I.
+
+=pod
+this is a sample AIS "delete" program, which
+disables the log-in buttons sent out by the "add" program.
+=cut
+
+use DirDB; # a concurrent-write-safe database :)
+tie %DATA,'DirDB','data/SSO_keys'; 
+
+
+my $email = $DATA{$ENV{QUERY_STRING}};
+unless ( $ENV{QUERY_STRING} and $email ){
+	print <<EOF and exit;
+Content-Type: text/html
+
+<body bgcolor=ffffff>
+
+Sorry, but the AIS login button you are trying to disable refers to
+a single sign-on capability key that either does not exist or
+has been deleted already. <p>
+
+</body>
+
+EOF
+
+};
+
+delete  $DATA{$ENV{QUERY_STRING}};
+
+open(MAIL,"|sendmail -t -i -f 'AIS-bounce-recipient\@$ENV{SERVER_NAME}'");
+print MAIL <<EOF;
+To: <$email>
+From: AIS-autoresponder\@$ENV{SERVER_NAME}
+X-Abuse-To: (tracert $ENV{HTTP_ADDR})\@abuse.net
+Subject: AIS DELETE receipt for $email
+
+You have connected to the $ENV{SERVER_NAME} AIS service
+ from IP address $ENV{HTTP_ADDR}
+ using a $ENV{HTTP_USER_AGENT} web browser to delete
+ the single-sign-on key $ENV{QUERY_STRING}
+
+EOF
+
+print <<EOF;
+Content-Type: text/html
+
+<body bgcolor=ffffff>
+
+You are connecting from $ENV{REMOTE_ADDR}<p>
+
+A message recording this AIS deletion has been e-mailed to &lt;$email&gt;<p>
+
+AIS login key $ENV{QUERY_STRING} has been deleted.
+
+</body>
+
+EOF
+
+__END__
+
+

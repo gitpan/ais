@@ -1,0 +1,55 @@
+#!/usr/local/bin/perl
+=pod
+this is a sample AIS "query" program, which
+looks up single-use keys provided in its query string and
+replies with a block of AIS-XML.
+=cut
+
+use strict;
+
+use DirDB;
+
+tie my %OTU, 'DirDB', './data/OTU_keys';
+
+my $xmlblock =  $OTU{$ENV{QUERY_STRING}} || <<DEFAULT;
+<identity>ERROR</identity>
+<error>provided single use key not found in AIS data</error>
+<aissri>http://$ENV{SERVER_NAME}/cgi/ais/</aissri>
+<user_remote_addr>$ENV{REMOTE_ADDR}</user_remote_addr>
+DEFAULT
+
+delete $OTU{$ENV{QUERY_STRING}}; # anyone know how to
+                                            # incorporate return-by-delete
+                                            # into the previous statement?
+my $email;
+if (($email)=$xmlblock=~m#<identity>(.+)</identity>#si
+	and $email ne 'NULL'
+	and $email ne 'ERROR'
+){
+	open(MAIL,"|sendmail -t -i -f 'AIS-bounce-recipient\@$ENV{SERVER_NAME}'");
+	print MAIL <<EOF;
+To: <$email>
+Subject: AIS web service query receipt
+
+AIS has provided the following XML block to a web service
+querying it from IP address $ENV{REMOTE_ADDR}
+as agent $ENV{HTTP_USER_AGENT}
+
+$xmlblock
+
+EOF
+};
+print <<EOF and exit;
+Content-Type: text/plain
+
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<aisresponse>
+$xmlblock</aisresponse>
+EOF
+
+__END__
+
+
+
+
+

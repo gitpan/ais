@@ -1,0 +1,14 @@
+#!/usr/local/bin/perl
+=pod
+this is a sample AIS "dummy" program, which
+does a redirect to the URL in its query string.
+=cut
+
+print "Location: $ENV{QUERY_STRING}\n\n";
+
+__END__
+
+
+
+
+

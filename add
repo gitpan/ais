@@ -1,0 +1,115 @@
+#!/usr/local/bin/perl -I.
+=pod
+this is a sample AIS "add" program, which
+will add a sign-on identity to its database or
+display a log-in page if no "email" variable appears
+in the CGI data.
+=cut
+
+# look for "email" in CGI data
+$rawdata = join '', $ENV{QUERY_STRING}, <STDIN>;
+($email) = ($rawdata =~ m/email=([^&]+)/);
+$email =~ s/%(..)/chr(hex($1))/ge;
+
+# look for an e-mail address
+($email) = ($email =~ m/([^\s\<\>\@\|]+\@[^\s\<\>\@\|]+)/);
+
+unless ($email){
+
+	($SHORT) = $ENV{REQUEST_URI} =~ /(^.+)add/; 
+        print <<EOF;
+Content-Type: text/html
+
+<title>AIS log-in page</title>
+<body bgcolor=ffffff>
+You do not appear to be logged into the AIS server used by
+the page you are trying to access. <p>
+Please click on the button
+in your <em>log-in links</em> e-mail, or enter your e-mail address below
+to receive a new one. <p>
+After validation, the e-mail address you provide will be shared with
+web services that subscribe to the 
+<a href="http://$ENV{SERVER_NAME}${SHORT}about">
+$ENV{SERVER_NAME}${SHORT}</a>
+authenticated identity service.
+<p>
+<form method=POST action="$ENV{SCRIPT_NAME}">
+What is a good e-mail address for you?
+<input type=text name="email">
+<input type=submit value="send me a log-in key">
+</form>
+
+</body>
+
+EOF
+        exit;
+};
+
+use DirDB; # a concurrent-write-safe database :)
+tie %DATA,'DirDB','data/SSO_keys'; 
+
+my $SSO_key = join '',time,(map {("A".."Z")[rand 26]} (0..15)), $$;
+
+print STDERR "saving $email to $SSO_key\n";
+$DATA{$SSO_key} = $email;
+
+
+        open(MAIL,"|sendmail -t -i -f 'AIS-bounce-recipient\@$ENV{SERVER_NAME}'");
+        print MAIL <<EOF;
+To: <$email>
+From: AIS-autoresponder\@$ENV{SERVER_NAME}
+X-Abuse-To: (tracert $ENV{HTTP_ADDR})\@abuse.net 
+Subject: AIS LOGIN LINKS for $email
+Content-Type: text/html
+
+<body bgcolor=ffffff>
+
+<form method="POST" action="http://$ENV{SERVER_NAME}/cgi/ais/login">
+<input type=hidden name="SK" value="$SSO_key">
+To log your web browser into the single sign-on service
+at $ENV{SERVER_NAME}/cgi/ais/,
+<input type=submit value="click here">
+or <a href="http://$ENV{SERVER_NAME}/cgi/ais/login?SK=$SSO_key">
+click here, if your e-mail software cannot submit a "post" style
+form submission.</a>
+<p>
+
+To log your web browser out, click here:<p>
+
+<a href="http://$ENV{SERVER_NAME}/cgi/ais/logout">
+http://$ENV{SERVER_NAME}/cgi/ais/logout
+</a>
+<p>
+
+To disable the log-in button in this message click here:<p>
+
+<a href="http://$ENV{SERVER_NAME}/cgi/ais/delete?$SSO_key">
+http://$ENV{SERVER_NAME}/cgi/ais/delete?$SSO_key
+</a>
+
+<p>
+You appear to have requested this log-in link while using
+a $ENV{HTTP_USER_AGENT} web browser from IP address $ENV{REMOTE_ADDR}
+
+<p>
+
+</body>
+
+EOF
+
+        print <<EOF;
+Content-Type: text/html
+
+<body bgcolor=ffffff>
+
+You are connecting from $ENV{REMOTE_ADDR}<p>
+
+A message containing an AIS log-in button has been e-mailed to &lt;$email&gt;
+
+</body>
+
+EOF
+
+__END__
+
+

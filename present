@@ -1,0 +1,67 @@
+#!/usr/local/bin/perl -I.
+=pod
+this is a sample AIS "present" program, which
+reads a SSO session certificate from a cookie
+called AIS_Session and uses DirDB
+for data persistence.
+
+If you are installing this somewhere where you
+already have a HTTP_USER environment variable,
+just use that instead if you want, to determine
+what user is presenting; but you still need to
+store the mapping back from the single-use key
+somewhere.
+=cut
+
+
+# -d 'data' or mkdir 'data', 0777 or die "could not create data directory";
+# use Fcntl ':flock'; # import LOCK_* constants
+# open LOCK,'>>data/AIS_lock' or die 'Cannot open Lock File';
+# flock LOCK, LOCK_EX;
+# dbmopen(%DATA,'data/AIS_data',0660); # so much easier to write than "tie..."
+
+use DirDB;
+tie %Sessions, 'DirDB', 'data/Sessions';
+tie %OTU_keys, 'DirDB', 'data/OTU_keys';
+
+# Determine Identity from Cookies:
+my $Ses_key;
+
+$ENV{HTTP_COOKIE} =~ m/AIS_Session=(\w+)/ and $Ses_key = $1;
+
+=pod
+
+The single-sign-on keys are set elsewhere; the AIS client
+is responsible for directing NULL users to a log-in page
+or something like that -- logging people in is not the
+"present" script's problem
+
+=cut
+
+my $Identity = $Ses_key ? $Sessions{$Ses_key} : 'NULL';
+my $Single_Use_Key = join('',time,(map {("A".."Z")[rand 26]} (0..19)), $$);
+
+# remember identity under the single-use-key:
+$OTU_keys{$Single_Use_Key} = <<IDENTITYBLOCK;
+<identity>$Identity</identity>
+<aissri>http://$ENV{SERVER_NAME}/cgi/ais/</aissri>
+<user_remote_addr>$ENV{REMOTE_ADDR}</user_remote_addr>
+IDENTITYBLOCK
+
+# send our user back to the AIS client
+print "Location: $ENV{QUERY_STRING}$Single_Use_Key\n\n";
+
+# every twenty present runs, clean up OTU keys older than two minutes
+unless ($$ % 20){
+
+	close STDOUT;
+	delete @OTU_keys{grep {(time - $_) > 120 } keys %OTU_keys};
+
+
+};
+
+exit;
+__END__
+
+
+
